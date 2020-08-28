@@ -7,6 +7,7 @@
 //
 
 import UIKit
+import CoreData
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -32,6 +33,73 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // Use this method to release any resources that were specific to the discarded scenes, as they will not return.
     }
 
+    lazy var persistentStoreCoordinator: NSPersistentStoreCoordinator = {
+      guard
+        let url = Bundle.main.url(forResource: "People", withExtension: "momd"),
+        let modelURL = NSManagedObjectModel(contentsOf: url),
+        let cachePath = NSSearchPathForDirectoriesInDomains(.cachesDirectory, .userDomainMask, true).last
+      else {
+        fatalError()
+      }
+      var storeURL = URL(fileURLWithPath: cachePath, isDirectory: true)
+      storeURL.appendPathComponent("People.sqlite")
 
+      let persistentStoreCoordinator = NSPersistentStoreCoordinator(managedObjectModel: modelURL)
+
+      do {
+        try persistentStoreCoordinator.addPersistentStore(
+          ofType: NSSQLiteStoreType,
+          configurationName: nil,
+          at: storeURL,
+          options: nil
+        )
+      }
+      catch {
+        fatalError()
+      }
+      return persistentStoreCoordinator
+    }()
+
+    lazy var rootContext: NSManagedObjectContext = {
+      let context = NSManagedObjectContext(concurrencyType: .privateQueueConcurrencyType)
+      context.persistentStoreCoordinator = persistentStoreCoordinator
+      return context
+    }()
+
+    lazy var backgroundContext: NSManagedObjectContext = {
+        let context = NSManagedObjectContext(concurrencyType: .privateQueueConcurrencyType)
+        if isUseRootContext {
+            context.parent = rootContext
+        }
+        else {
+            context.persistentStoreCoordinator = persistentStoreCoordinator
+        }
+        return context
+    }()
+
+    lazy var viewContext: NSManagedObjectContext = {
+        let context = NSManagedObjectContext(concurrencyType: .mainQueueConcurrencyType)
+        if isUseRootContext {
+            context.parent = rootContext
+        }
+        else {
+            context.persistentStoreCoordinator = persistentStoreCoordinator
+        }
+        return context
+    }()
+
+    var isUseRootContext: Bool {
+        get {
+            UserDefaults.standard.bool(forKey: Key.isUseRootContext.rawValue)
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: Key.isUseRootContext.rawValue)
+        }
+    }
+}
+
+enum Key: String {
+    case isUseRootContext
+    case isDataInserted
 }
 
